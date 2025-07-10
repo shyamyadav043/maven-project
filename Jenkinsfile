@@ -1,47 +1,30 @@
 node {
-    // reference to maven
-    // ** NOTE: This 'maven-3.5.2' Maven tool must be configured in the Jenkins Global Configuration.   
     def mvnHome = tool 'maven-3.5.2'
-
-    // holds reference to docker image
     def dockerImage
-    // ip address of the docker private repository(nexus)
- 
     def dockerImageTag = "maven${env.BUILD_NUMBER}"
-    
-    stage('Clone Repo') { // for display purposes
-      // Get some code from a GitHub repository
-      git 'https://github.com/shyamyadav043/maven-project.git'
-      // Get the Maven tool.
-      // ** NOTE: This 'maven-3.5.2' Maven tool must be configured
-      // **       in the global configuration.           
-      mvnHome = tool 'maven-3.5.2'
+
+    stage('Clone Repo') {
+        git 'https://github.com/shyamyadav043/maven-project.git'
     }    
-  
+
     stage('Build Project') {
-      // build project via maven
-      sh "'${mvnHome}/bin/mvn' clean install"
+        sh "'${mvnHome}/bin/mvn' clean install"
     }
-		
+
     stage('Build Docker Image') {
-      // build docker image
-      dockerImage = docker.build("maven:${env.BUILD_NUMBER}")
+        dockerImage = docker.build("maven:${env.BUILD_NUMBER}")
     }
-   	  
-    stage('Deploy Docker Image and login'){
-      
-      echo "Docker Image Tag Name: ${dockerImageTag}"
-	  
+
+    stage('Docker Login') {
+        echo "Docker Image Tag: ${dockerImageTag}"
         sh "docker images"
-        sh "docker login -u shyam043 -p Rs9Zptsz@321" // put PWD
-	
-}
-    stage('Docker push'){
-       // docker images | awk '{print $3}' | awk 'NR==2'
-	// sh "docker images | awk '{print $3}' | awk 'NR==2'"
-	//sh echo "Enter the docker lattest imageID"
-	//sh "read imageid"
-	   sh "docker tag   shyam043/mavencicd" //must change your name and tag no
-        sh "docker push   shyam043/mavencicd"
-  }
+        withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+            sh "docker login -u $DOCKER_USER -p $DOCKER_PASS"
+        }
+    }
+
+    stage('Docker Tag and Push') {
+        sh "docker tag maven:${env.BUILD_NUMBER} shyam043/mavencicd:${env.BUILD_NUMBER}"
+        sh "docker push shyam043/mavencicd:${env.BUILD_NUMBER}"
+    }
 }
